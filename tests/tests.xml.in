@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testdefinition version="1.0">
+   <suite name="@PACKAGENAME@-tests" domain="middleware">
+       <description>Nemo Image Metadata automatic tests</description>
+       <set name="@PACKAGENAME@-test0" feature="Internal UI Components">
+           <description>Nemo Image Metadata unit tests</description>
+           <case manual="false" name="enginetests">
+               <step>cd /opt/tests/@PACKAGENAME@/ &amp;&amp; ./ut_imagemetadata</step>
+           </case>
+       </set>
+   </suite>
+</testdefinition>
