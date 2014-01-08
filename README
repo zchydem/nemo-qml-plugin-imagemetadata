@@ -1,0 +1,5 @@
+Image metadata handling for Nemo mobile
+
+This repository provides nemo-qml-plugin-imagemetadata which contains
+Qt C++ library and QML binding for handling image metadata. Implementation
+is based on functionality provided by exiv2 (http://www.exiv2.org).
