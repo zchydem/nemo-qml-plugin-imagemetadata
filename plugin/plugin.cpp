@@ -47,8 +47,8 @@ public:
 
         qmlRegisterType<ImageData>("org.nemomobile.imagemetadata", 1, 0, "ImageData");
         qmlRegisterType<ExifData>("org.nemomobile.imagemetadata", 1, 0, "ExifData");
-        qmlRegisterType<XmpData>("org.nemomobile.imagemetadata", 1, 0, "XmpData");
-        qmlRegisterType<IptcData>("org.nemomobile.imagemetadata", 1, 0, "IptcData");
+        //qmlRegisterType<XmpData>("org.nemomobile.imagemetadata", 1, 0, "XmpData");
+        //qmlRegisterType<IptcData>("org.nemomobile.imagemetadata", 1, 0, "IptcData");
     }
 };
 

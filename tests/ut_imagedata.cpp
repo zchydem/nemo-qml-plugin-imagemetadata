@@ -166,8 +166,8 @@ void ut_imagedata::testCopyAndClear()
     QCOMPARE(ci.valid(), true);
     QCOMPARE(ci.status(), ImageData::Ready);
 
-    ExifData *oExif = m_imageData->exifData();
-    ExifData *cExif = ci.exifData();
+    QAbstractListModel *oExif = m_imageData->exifData();
+    QAbstractListModel *cExif = ci.exifData();
     QCOMPARE(oExif->rowCount(), cExif->rowCount());
     ci.clearExifData();
     cExif = ci.exifData();

@@ -20,6 +20,10 @@ SOURCES += \
     ut_iptcdata.cpp \
     ut_xmpdata.cpp
 
+OTHER_FILES += \
+    tst_*.qml \
+    scripts/*
+
 QT += testlib
 
 PATH = /opt/tests/$${PACKAGENAME}
@@ -37,9 +41,12 @@ tests_install.path = $$PATH
 tests_install.files = $$tests_xml.target
 tests_install.CONFIG += no_check_exist
 
+qml.files = tst_*.qml scripts
+qml.path = $$PATH
+
 resources.files = images/*
 resources.path = $$PATH/images
 
 target.path = $$PATH
 
-INSTALLS += target resources tests_install tests_xml
+INSTALLS += target resources tests_install tests_xml qml

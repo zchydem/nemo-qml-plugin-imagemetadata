@@ -31,6 +31,7 @@
 
 #include <QtDebug>
 #include <QVariant>
+#include <QSignalSpy>
 
 ut_exifdata::ut_exifdata(QObject * parent)
     : QObject(parent)
@@ -42,7 +43,6 @@ ut_exifdata::ut_exifdata(QObject * parent)
 
 void ut_exifdata::init()
 {
-    qDebug() << Q_FUNC_INFO;
     QVERIFY(m_exif == 0);
     m_imageData = new ImageData;
     m_imageData->setSource(QUrl::fromLocalFile("images/android-test-image.jpg"));
@@ -56,8 +56,6 @@ void ut_exifdata::init()
 
 void ut_exifdata::cleanup()
 {
-    qDebug() << Q_FUNC_INFO;
-
     if (m_exif) {
         delete m_exif;
         m_exif = 0;
@@ -124,12 +122,16 @@ void ut_exifdata::testModelData_data()
     QTest::newRow("Value")              << 12   << 0 << static_cast<int>(ExifData::Value)           <<  QVariant("800");
     QTest::newRow("Value")              << 0    << 0 << static_cast<int>(ExifData::Value)           <<  QVariant("HTC");
     QTest::newRow("RationalValue ")     << 60   << 0 << static_cast<int>(ExifData::Value)           <<  QVariant("72/1");
-    QTest::newRow("RationalC1Value ")   << 60   << 0 << static_cast<int>(ExifData::RationalC1Value) <<  QVariant(72);
-    QTest::newRow("RationalC2Value ")   << 60   << 0 << static_cast<int>(ExifData::RationalC2Value) <<  QVariant(1);
-    QTest::newRow("LongValue")          << 62   << 0 << static_cast<int>(ExifData::LongValue)       <<  QVariant(1798);
-    QTest::newRow("RationalC1Value")    << 26   << 0 << static_cast<int>(ExifData::RationalC1Value) <<  QVariant(382);
-    QTest::newRow("RationalC2Value")    << 26   << 0 << static_cast<int>(ExifData::RationalC2Value) <<  QVariant(100);
     QTest::newRow("LongValue")          << 12   << 0 << static_cast<int>(ExifData::LongValue)       <<  QVariant(800);
+    QTest::newRow("LongValue")          << 62   << 0 << static_cast<int>(ExifData::LongValue)       <<  QVariant(1798);
+
+    // Rational values are returned as "pairs"
+    QList <QVariant> r; r << 72 << 1;
+    QTest::newRow("RationalValue ")   << 60   << 0 << static_cast<int>(ExifData::RationalValue) <<  QVariant(r);
+
+    r.clear();
+    r << 382 << 100;
+    QTest::newRow("RationalValue")    << 26   << 0 << static_cast<int>(ExifData::RationalValue) <<  QVariant(r);
 }
 
 void ut_exifdata::testModelData()
@@ -147,6 +149,44 @@ void ut_exifdata::testModelData()
 void ut_exifdata::testModifyMetadata()
 {
 
+}
+
+void ut_exifdata::testRemoveValue()
+{
+    QString tmpFile("/tmp/test-image-for-delete.jpg");
+    QCOMPARE(m_imageData->copyMetadataTo(tmpFile), true);
+    QCOMPARE(QFile::exists(tmpFile), true);
+
+    ImageData id;
+    id.setSource(tmpFile);
+    id.componentComplete();
+
+    ExifData *exif = id.exifData();
+    QSignalSpy spy1(exif, SIGNAL(rowsAboutToBeRemoved(QModelIndex,int,int)));
+    QSignalSpy spy2(exif, SIGNAL(rowsRemoved(QModelIndex,int,int)));
+    QString key("Exif.Image.Make");
+    QCOMPARE(exif->tags().contains(key), true);
+    QCOMPARE(exif->removeValue(key), true);
+    QCOMPARE(exif->tags().contains(key), false);
+    QCOMPARE(spy1.count(), 1);
+    QCOMPARE(spy2.count(), 1);
+    QList<QVariant> index = spy1.takeFirst();
+    QCOMPARE(index.value(0).toInt(), 0);
+
+    // Let's write metadata back
+    id.setExifData(exif);
+    id.save();
+
+
+    // Open a new instance and see if the removed metadata exists.
+    ImageData id2;
+    id2.setSource(tmpFile);
+    id2.componentComplete();
+    exif = id2.exifData();
+    QCOMPARE(exif->tags().contains(key), false);
+
+    // Cleanup
+    QCOMPARE(QFile::remove(tmpFile), true);
 }
 
 

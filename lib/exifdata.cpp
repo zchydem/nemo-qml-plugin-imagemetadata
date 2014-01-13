@@ -25,85 +25,97 @@
 ****************************************************************************************/
 
 #include "exifdata.h"
-
+#include "exifdata_p.h"
 #include <QtDebug>
 
-
-class ExifDataPrivate
+ExifDataPrivate::ExifDataPrivate(ExifData *parent)
+    : q_ptr(parent)
 {
-public:
 
-    QVariant valueToVariant(Exiv2::Value::AutoPtr value, int role) const
-    {
-        if (value->count() == 0) {
-            return QVariant();
-        }
-        else
-        if (role == ExifData::Value) {
-            return QString::fromStdString(value->toString());
-        }
-        else
-        if (role == ExifData::LongValue && value->count() == 1) {
-            return QVariant::fromValue(value->toLong(0));
-        }
-        else
-        if (role == ExifData::FloatValue && value->count() == 1) {
-            return value->toFloat(0);
-        }
-        else
-        if (role == ExifData::RationalC1Value && value->count() == 1) {
-            return static_cast<std::pair<uint32_t, uint32_t> >(value->toRational(0)).first;
-        }
-        else
-        if (role == ExifData::RationalC2Value && value->count() == 1) {
-            return static_cast<std::pair<uint32_t, uint32_t> >(value->toRational(0)).second;
-        }
+}
 
-        qWarning() << Q_FUNC_INFO << "Failed to convert value to QVariant"
-                   << QString::fromStdString(value->toString());
-        return QVariant();
+ExifDataPrivate::ExifDataPrivate(ExifData *parent, Exiv2::ExifData &exifData)
+    : exif(exifData)
+    , q_ptr(parent)
+{
+    loadKeys();
+}
+
+void ExifDataPrivate::loadKeys()
+{
+    Q_Q(ExifData);
+    const int oldCount = keys.count();
+    if (exif.empty()) {
+        return;
     }
 
-    Exiv2::ExifData exif;
-    QStringList keys;
-};
+    QStringList tmpKeys;
+    Exiv2::ExifData::const_iterator end = exif.end();
+    for (Exiv2::ExifData::const_iterator i = exif.begin(); i != end; ++i) {
+        tmpKeys  << QString::fromStdString(i->key());
+    }
+
+    keys = tmpKeys;
+    if (oldCount != keys.count()) {
+        emit q->countChanged();
+    }
+}
+
+// This is ugly as hell, but the idea is that value can have more
+// than 1 component. If there's one component QVariant(value) is
+// returned. If there are more componets or the value type is rational
+// then this returns QList<QVariant> list, which contains all the
+// components or rational number.
+QVariant ExifDataPrivate::valueToVariant(Exiv2::Value::AutoPtr value, int role) const
+{
+    const int count = value->count();
+    QList <QVariant> values;
+
+    if (count == 0) {
+        return QVariant();
+    }
+    // NOTE: For some reason count can be something like 90 for string.
+    // Therefore need to handle it differently.
+    if(role == ExifData::Value) {
+        return  QString::fromStdString(value->toString());
+    }
+
+    for (int i=0; i < count; ++i) {
+        switch(role) {
+        case ExifData::LongValue:
+            values << QVariant::fromValue(value->toLong(i));
+            break;
+        case ExifData::FloatValue:
+            values << value->toFloat(i);
+            break;
+        case ExifData::RationalValue:
+            values << QVariant(value->toRational(i).first);
+            values << QVariant(value->toRational(i).second);
+            break;
+        default:
+            qWarning() << Q_FUNC_INFO << "Unknown value!";
+            break;
+        }
+    }
+
+    return values.count() == 1
+            ? values.at(0)
+            : values;
+}
+
+
 
 ExifData::ExifData(QObject * parent)
     : QAbstractListModel(parent)
-    , d_ptr(new ExifDataPrivate)
+    , d_ptr(new ExifDataPrivate(this))
 {
 }
 
 ExifData::ExifData(Exiv2::ExifData &exifData, QObject *parent)
     : QAbstractListModel(parent)
-    , d_ptr(new ExifDataPrivate)
+    , d_ptr(new ExifDataPrivate(this, exifData))
 {
-    Q_D(ExifData);
-    d->exif = exifData;
-    if (d->exif.empty()) {
-        return;
-    }
-    int index = 0;
-    Exiv2::ExifData::const_iterator end = d->exif.end();
-    for (Exiv2::ExifData::const_iterator i = d->exif.begin(); i != end; ++i) {
 
-        QString key = QString::fromStdString(i->key());
-        qDebug() << index++ << "Key: " << key
-                 << QString::fromStdString(i->tagName())
-                 << QString::fromStdString(i->familyName())
-                 << QString::fromStdString(i->tagLabel())
-                 << QString::fromStdString(i->groupName())
-                 << i->tag()
-                 << QString::fromStdString(i->tagName())
-                 << QString::fromStdString(i->ifdName())
-                 << QString::fromStdString(i->typeName());
-
-        d->keys  << QString::fromStdString(i->key());
-    }
-
-    if (d->exif.count() > 0) {
-        emit countChanged();
-    }
 }
 
 ExifData::~ExifData()
@@ -119,8 +131,6 @@ void ExifData::classBegin()
 
 void ExifData::componentComplete()
 {
-    // TODO: Check this
-    Q_D(ExifData);
 }
 
 QModelIndex ExifData::index(int row, int column, const QModelIndex &parent) const
@@ -176,8 +186,7 @@ QVariant ExifData::data(const QModelIndex & index, int role) const
     case ExifData::Value:
     case ExifData::LongValue:
     case ExifData::FloatValue:
-    case ExifData::RationalC1Value:
-    case ExifData::RationalC2Value:
+    case ExifData::RationalValue:
         return d->valueToVariant(entry->getValue(), role);
     default:
         qWarning() << Q_FUNC_INFO << "Unknown role!";
@@ -198,14 +207,71 @@ void ExifData::setTags(const QStringList &tags)
 }
 
 
-QVariant ExifData::tag(const QString &key)
+QVariant ExifData::value(const QString &key)
 {
-    return QVariant();
+    Q_D(const ExifData);
+    if (key.isEmpty()) {
+        qWarning() << Q_FUNC_INFO << "Empty key!";
+        return QVariant();
+    }
+
+    Exiv2::ExifKey exifKey(key.toStdString());
+    Exiv2::ExifData::const_iterator entry = d->exif.findKey(exifKey);
+    if (entry == d->exif.end()) {
+        return QVariant();
+    }
+
+    // Always return value as string
+    Exiv2::Value::AutoPtr value = entry->getValue();
+    return QString::fromStdString(value->toString());
 }
 
-void ExifData::setTag(const QString &key, const QVariant &value)
+void ExifData::setValue(const QString &key, const QVariant &value)
 {
+    /*
+    Q_D(ExifData);
+    if (key.isEmpty() || !value.isValid()) {
+        qWarning() << Q_FUNC_INFO << "Invalid key or value!";
+        return;
+    }
 
+    Exiv2::ExifKey exifKey(key.toStdString());
+    Exiv2::ExifData::iterator entry = d->exif.findKey(exifKey);
+    if (entry == d->exif.end()) {
+        return;
+    }
+
+    // Always return value as string
+    Exiv2::Value::AutoPtr value = entry->getValue();
+    */
+}
+
+bool ExifData::removeValue(const QString &key)
+{
+    Q_D(ExifData);
+    if (key.isEmpty()) {
+        qWarning() << Q_FUNC_INFO << "Invalid key or value!";
+        return false;
+    }
+
+    Exiv2::ExifKey exifKey(key.toStdString());
+    Exiv2::ExifData::iterator entry = d->exif.findKey(exifKey);
+    if (entry == d->exif.end()) {
+        return false;
+    }
+
+    const int index = d->keys.indexOf(key);
+    beginRemoveRows(QModelIndex(), index, index);
+    const int keyCount = d->keys.count();
+    d->exif.erase(entry);
+    d->loadKeys();
+    endRemoveRows();
+    if ((keyCount > d->keys.count())) {
+        emit countChanged();
+        return true;
+    } else {
+        return  false;
+    }
 }
 
 QHash<int, QByteArray> ExifData::roleNames() const
@@ -225,7 +291,6 @@ QHash<int, QByteArray> ExifData::roleNames() const
     roles[++roleIndex] = "value";
     roles[++roleIndex] = "longValue";
     roles[++roleIndex] = "floatValue";
-    roles[++roleIndex] = "rationalC1Value";
-    roles[++roleIndex] = "rationalC2value";
+    roles[++roleIndex] = "rationalValue";
     return roles;
 }

@@ -1,2 +1,2 @@
 module org.nemomobile.imagemetadata
-plugin imagemetadataplugin
+plugin nemoimagemetadataplugin

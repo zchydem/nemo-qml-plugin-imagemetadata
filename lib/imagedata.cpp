@@ -25,6 +25,7 @@
 ****************************************************************************************/
 
 #include "imagedata.h"
+#include "exifdata_p.h"
 #include <QtDebug>
 #include <QFile>
 #include <QDir>
@@ -52,7 +53,10 @@ public:
         if (!source.isValid() || !QFile::exists(source.toLocalFile())) {
             status = ImageData::Error;
             emit q->statusChanged();
-            qWarning() << Q_FUNC_INFO << "Invalid image source: " << source.toLocalFile() << source.isValid();
+            qWarning() << Q_FUNC_INFO << "Invalid image source: "
+                       << source
+                       << source.toLocalFile()
+                       << source.isValid();
             return;
         }
 
@@ -111,10 +115,17 @@ void ImageData::setSource(const QUrl &url)
     Q_D(ImageData);
     if (url != d->source && url.isValid()) {
         d->source = url;
+
+        if (d->source.scheme().isEmpty()) {
+            d->source.setScheme(QStringLiteral("file"));
+        }
+
         emit sourceChanged();
         if (d->initDone) {
             d->reload();
         }
+    } else {
+        qWarning() << Q_FUNC_INFO << "Invalid source: " << url;
     }
 }
 
@@ -169,13 +180,23 @@ int ImageData::height() const
 ExifData * ImageData::exifData()
 {
     Q_D(const ImageData);
-    ExifData *ed = new ExifData(d->image->exifData(), this);
-    return ed;
+    return d->status == ImageData::Ready
+            ? new ExifData(d->image->exifData(), this)
+            : 0;
 }
 
 void ImageData::setExifData(ExifData *exifData)
 {
-
+    Q_D(ImageData);
+    if (exifData == 0) {
+        qWarning() << Q_FUNC_INFO << "Null ExifData object";
+        return;
+    }
+    if (d->status == ImageData::Ready) {
+        d->image->setExifData(exifData->d_func()->exif);
+    } else {
+        qWarning() << Q_FUNC_INFO << "Can't set exif data while status is not Ready";
+    }
 }
 
 
@@ -282,7 +303,6 @@ bool ImageData::copyMetadataTo(const QString &targetFilePath, bool create)
 {
     Q_D(ImageData);
     QString basePath = targetFilePath.left(targetFilePath.lastIndexOf("/"));
-    qDebug() << Q_FUNC_INFO << "Base path: " << basePath;
 
     if (basePath.size() <= 0) {
         qWarning() << Q_FUNC_INFO << "Invalid target file path!";
@@ -315,3 +335,8 @@ bool ImageData::copyMetadataTo(const QString &targetFilePath, bool create)
     return QFile::exists(targetFilePath);
 }
 
+void ImageData::save()
+{
+    Q_D(ImageData);
+    d->image->writeMetadata();
+}

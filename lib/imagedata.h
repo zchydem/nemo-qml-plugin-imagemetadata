@@ -34,6 +34,7 @@
 #include <exiv2/exiv2.hpp>
 #include "exifdata.h"
 
+
 class ImageDataPrivate;
 class Q_DECL_EXPORT ImageData: public QObject, public QQmlParserStatus
 {
@@ -102,7 +103,7 @@ public:
     int width() const;
     int height() const;
 
-    ExifData * exifData();
+    ExifData *exifData();
     void setExifData(ExifData *exifData);
 
     Q_INVOKABLE bool supportsExif() const;
@@ -122,7 +123,7 @@ public:
     Q_INVOKABLE void clearMetadata(bool flush = true);
 
     Q_INVOKABLE bool copyMetadataTo(const QString &targetFilePath, bool create = true);
-
+    Q_INVOKABLE void save();
 
 Q_SIGNALS:
     // TODO: Check if all the are really needed

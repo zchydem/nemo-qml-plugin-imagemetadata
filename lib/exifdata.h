@@ -58,11 +58,11 @@ public:
         IfdName,
         Ifd,
         TypeName,
+        ValueComponentCount,
         Value,
         LongValue,
         FloatValue,
-        RationalC1Value,
-        RationalC2Value
+        RationalValue
     };
 
 
@@ -79,8 +79,10 @@ public:
     QStringList tags() const;
     void setTags(const QStringList &tags);
 
-    Q_INVOKABLE QVariant tag(const QString &key);
-    Q_INVOKABLE void setTag(const QString &key, const QVariant &value);
+    Q_INVOKABLE QVariant value(const QString &key);
+    Q_INVOKABLE void setValue(const QString &key, const QVariant &value);
+
+    Q_INVOKABLE bool removeValue(const QString &key);
 
 Q_SIGNALS:
     void countChanged();
@@ -93,6 +95,7 @@ private:
     ExifData(Exiv2::ExifData &exifData, QObject * parent = 0);
     ExifDataPrivate *d_ptr;
     Q_DECLARE_PRIVATE(ExifData)
+
 
     friend class ImageData;
 };

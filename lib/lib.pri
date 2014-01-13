@@ -4,6 +4,7 @@ PKGCONFIG += exiv2
 
 HEADERS += \
     $$PWD/exifdata.h \
+    $$PWD/exifdata_p.h \
     $$PWD/imagedata.h \
     $$PWD/iptcdata.h \
     $$PWD/xmpdata.h

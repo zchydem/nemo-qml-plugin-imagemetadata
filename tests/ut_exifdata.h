@@ -45,6 +45,7 @@ private slots:
     void testModelData_data();
     void testModelData();
     void testModifyMetadata();
+    void testRemoveValue();
 
 private:
     ImageData *m_imageData;
